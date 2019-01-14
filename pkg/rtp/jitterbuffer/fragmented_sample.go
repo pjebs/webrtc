@@ -1,8 +1,17 @@
 package jitterbuffer
 
-import "github.com/pions/webrtc/pkg/rtp"
+import (
+	"errors"
+
+	"github.com/pions/webrtc/pkg/rtp"
+)
 
 const invalidSeqNum = -1
+
+var (
+	errNextSeqNumTooSmall = errors.New("next sequence number less than first sequence number in the sample")
+	errNextSeqNumOverlaps = errors.New("next sequence number overlaps between first and last sequence number in the sample")
+)
 
 type fragmentedSample struct {
 	isCompleteCached  bool
@@ -62,12 +71,40 @@ func (f *fragmentedSample) isComplete() bool {
 }
 
 func (f *fragmentedSample) pushPacket(packet *rtp.Packet) {
-
+	if f.isCompleteCached {
+		// Trying to push to completed packet
+		// TODO: Add some sort of very stern warning
+		return
+	}
+	if ok := f.packets.Push(packet); !ok {
+		// This packet already exists in this fragmented sample
+		// TODO: Record the number of duplicate packets
+		return
+	}
 }
 
-func (f *fragmentedSample) generateNacks(nextSampleStartingSeqNum sequenceNumber) (nacks []uint16) {
+func (f *fragmentedSample) generateNacks(nextSampleStartingSeqNum sequenceNumber) (nacks []uint16, err error) {
 	// If we have a fragmented sample, we have at least 1 packet
 	previousSeqNum := f.packets[0].SequenceNumber
+
+	if nextSampleStartingSeqNum.isValid {
+		// We are larger or equal to the next samples sequence number
+		// This should never happen unless we are extremely out of date
+		if compareSeqNum(previousSeqNum, nextSampleStartingSeqNum.value) > 0 {
+			return nil, errNextSeqNumTooSmall
+		}
+
+		// Get the last sequence number
+		lastSeqNum := f.packets[len(f.packets)-1].SequenceNumber
+		// Only check if it not the same as the one we already checked
+		// Check if there is overlap between nextSampleStartingSeqNum and first to last packet in this sample
+		if lastSeqNum != previousSeqNum {
+			if compareSeqNum(lastSeqNum, nextSampleStartingSeqNum.value) >= 0 {
+				return nil, errNextSeqNumOverlaps
+			}
+		}
+
+	}
 
 	for _, p := range f.packets[1:] {
 		for i := previousSeqNum + 1; i != p.SequenceNumber; i++ {
@@ -83,5 +120,5 @@ func (f *fragmentedSample) generateNacks(nextSampleStartingSeqNum sequenceNumber
 		}
 	}
 
-	return nacks
+	return nacks, nil
 }

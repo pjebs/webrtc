@@ -2,16 +2,14 @@ package jitterbuffer
 
 import (
 	"testing"
-
-	"github.com/pions/webrtc/pkg/rtp"
 )
 
 func TestSequentialPush(t *testing.T) {
 	ss := sequenceSet{}
 
-	ss.Push(&rtp.Packet{SequenceNumber: 0})
-	ss.Push(&rtp.Packet{SequenceNumber: 1})
-	ss.Push(&rtp.Packet{SequenceNumber: 2})
+	ss.Push(newRTPTestPacket(0, false))
+	ss.Push(newRTPTestPacket(1, false))
+	ss.Push(newRTPTestPacket(2, false))
 
 	if len(ss) != 3 {
 		t.Errorf("Length incorrect, got: %d, want: %d.", len(ss), 3)
@@ -30,9 +28,9 @@ func TestSequentialPush(t *testing.T) {
 func TestNonSequentialPush(t *testing.T) {
 	ss := sequenceSet{}
 
-	ss.Push(&rtp.Packet{SequenceNumber: 2})
-	ss.Push(&rtp.Packet{SequenceNumber: 0})
-	ss.Push(&rtp.Packet{SequenceNumber: 1})
+	ss.Push(newRTPTestPacket(2, false))
+	ss.Push(newRTPTestPacket(0, false))
+	ss.Push(newRTPTestPacket(1, false))
 
 	if len(ss) != 3 {
 		t.Errorf("Length incorrect, got: %d, want: %d.", len(ss), 3)
@@ -51,9 +49,9 @@ func TestNonSequentialPush(t *testing.T) {
 func TestSequentialWrapPush(t *testing.T) {
 	ss := sequenceSet{}
 
-	ss.Push(&rtp.Packet{SequenceNumber: 65534})
-	ss.Push(&rtp.Packet{SequenceNumber: 65535})
-	ss.Push(&rtp.Packet{SequenceNumber: 0})
+	ss.Push(newRTPTestPacket(65534, false))
+	ss.Push(newRTPTestPacket(65535, false))
+	ss.Push(newRTPTestPacket(0, false))
 
 	if len(ss) != 3 {
 		t.Errorf("Length incorrect, got: %d, want: %d.", len(ss), 3)
@@ -72,9 +70,9 @@ func TestSequentialWrapPush(t *testing.T) {
 func TestNonSequentialWrapPush(t *testing.T) {
 	ss := sequenceSet{}
 
-	ss.Push(&rtp.Packet{SequenceNumber: 65534})
-	ss.Push(&rtp.Packet{SequenceNumber: 0})
-	ss.Push(&rtp.Packet{SequenceNumber: 65535})
+	ss.Push(newRTPTestPacket(65534, false))
+	ss.Push(newRTPTestPacket(0, false))
+	ss.Push(newRTPTestPacket(65535, false))
 
 	if len(ss) != 3 {
 		t.Errorf("Length incorrect, got: %d, want: %d.", len(ss), 3)
@@ -93,15 +91,15 @@ func TestNonSequentialWrapPush(t *testing.T) {
 func TestInsertDuplicatePush(t *testing.T) {
 	ss := sequenceSet{}
 
-	if ok := ss.Push(&rtp.Packet{SequenceNumber: 65534}); !ok {
+	if ok := ss.Push(newRTPTestPacket(65534, false)); !ok {
 		t.Errorf("Push should have succeeded")
 	}
 
-	if ok := ss.Push(&rtp.Packet{SequenceNumber: 0}); !ok {
+	if ok := ss.Push(newRTPTestPacket(0, false)); !ok {
 		t.Errorf("Push should have succeeded")
 	}
 
-	if ok := ss.Push(&rtp.Packet{SequenceNumber: 65534}); ok {
+	if ok := ss.Push(newRTPTestPacket(65534, false)); ok {
 		t.Errorf("Push should have failed")
 	}
 
